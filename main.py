@@ -45,7 +45,8 @@ async def weather(message: types.Message):
     user_states[message.from_user.id]['state'] = LOCATION_INFORMATION
     await message.answer('Чтобы расчитать маршрут, введите ОТКУДА, КУДА, и остальные части вашего маршрута:')
 
-@dp.message(F.text) #Обработчик обычных сообщений не команд
+#Обработчик обычных сообщений не команд
+@dp.message(F.text)
 async def process_msg(message: types.Message):
     # если в состоянии выбора, то вносим города в состояния, при вводе предлагаем завершить ввод с помощью инлайн кнокпи
     if user_states[message.from_user.id]['state'] == LOCATION_INFORMATION:
@@ -54,8 +55,11 @@ async def process_msg(message: types.Message):
         city_name = message.text
         user_states[message.from_user.id]['locations'].append(city_name)
         await message.answer(f"Вы ввели {len(user_states[message.from_user.id]['locations'])} город: {city_name}, закончить выбор? Если нет, то введите следующий город", reply_markup=inline_keyboard)
+    else:
+        await message.answer('НЕТ ТАКОЙ КОМАНДЫ!!!!! напишите /help для списка команд')
 
-@dp.callback_query(F.data == 'confirm_locations') #Подтверждение маршрута
+#Подтверждение маршрута
+@dp.callback_query(F.data == 'confirm_locations')
 async def confirm_locations(callback_query: types.CallbackQuery):
     print(user_states[callback_query.from_user.id])
     print(len(user_states[callback_query.from_user.id]['locations']))
@@ -63,16 +67,21 @@ async def confirm_locations(callback_query: types.CallbackQuery):
         inline_keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(text='Да', callback_data='time')], [types.InlineKeyboardButton(text='Нет', callback_data='restart_weather')]])
         await callback_query.message.answer(f'Вы выбрали города: {[str(city) for city in user_states[callback_query.from_user.id]['locations']]}')
-        await callback_query.message.answer(f'Подтверждаете выбор?', reply_markup=types.ReplyKeyboardRemove())
+        await callback_query.message.answer(f'Подтверждаете выбор?', reply_markup=inline_keyboard)
 
     else:
         await callback_query.message.answer('Слишком мало точек маршрута! нужно минимум 2. Продолжайте вводить города')
 @dp.callback_query(F.data == 'restart_weather')
 
-async def restart_weather(callback_query: types.CallbackQuery): #если не подтведили выбор городов, начинаем ввод заново
-    await weather()
+#если не подтведили выбор городов, начинаем ввод заново
+async def restart_weather(callback_query: types.CallbackQuery):
+    user_states[callback_query.from_user.id]['locations'] = []
+    await callback_query.message.answer('Начинаю ввод заново...')
+    user_states[callback_query.from_user.id]['state'] = LOCATION_INFORMATION
+    await callback_query.message.answer('Начинаю ввод заново... Введите ОТКУДА, КУДА и остальные части вашего маршрута:')
 
-@dp.callback_query(F.data == 'time') #Обработка выбора времени
+#Обработка выбора времени
+@dp.callback_query(F.data == 'time')
 async def process_time(callback_query: types.CallbackQuery):
 
 
