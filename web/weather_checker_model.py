@@ -10,7 +10,6 @@ class WeatherModel:
         try:
             url_location = f"http://dataservice.accuweather.com/locations/v1/cities/search?apikey={self.API_KEY}&q={city}"
             response = requests.get(url_location)
-            print(response.json())
             location_key = response.json()[0]['Key']
             return location_key
         except:
@@ -21,10 +20,10 @@ class WeatherModel:
             url = f"http://dataservice.accuweather.com/currentconditions/v1/{location_key}?apikey={self.API_KEY}&details=true"
             response = requests.get(url)
             data = response.json()
-            weather = {'is_precipitation': data[0]['HasPrecipitation'],
+            weather = {'is_precipitation': 'Да' if data[0]['HasPrecipitation'] else 'Нет',
                        'temperature': int(data[0]['Temperature']['Metric']['Value']),
                        'humidity': int(data[0]['RelativeHumidity']),
-                       'wind': int(data[0]['Wind']['Speed']['Metric']['Value'])
+                       'wind': int(data[0]['Wind']['Speed']['Metric']['Value']),
                        }
             return weather
         except:

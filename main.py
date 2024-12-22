@@ -1,12 +1,14 @@
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.state import State, StatesGroup
 import asyncio
+from web.weather_checker_model import WeatherModel
 
 with open('token.txt') as f:   #чтение токена
     API_TOKEN = f.readline().strip()
 
 bot = Bot(token=API_TOKEN)  #создаем сущности бота и диспетчера
 dp = Dispatcher()
+weather_model = WeatherModel('mqiZotA2vL62GqZwFlLA1p9UQG5jWlOg')
 
 user_states = {}
 
@@ -14,6 +16,7 @@ user_states = {}
 BOT_INFORMATION = 'SHOWING COMMANDS' #состояние показа информации о боте
 LOCATION_INFORMATION = 'COLLECTING LOCATIONS' #состояние сбора информации о метах маршрута
 TIME_INFORMATION = 'COLLECTING TIMES' #состояние сбора времени
+GETTING_INFORMATION = 'COLLECTING THINGS' #запрос к API прогноза погоды
 SHOW_WEATHER_INFORMATION = 'SHOWING WEATHER!' #показ прогноза погоды
 
 #Начало работы бота
@@ -43,7 +46,7 @@ async def show_commands(message: types.Message):
 @dp.message(F.text == '/weather')
 async def weather(message: types.Message):
     user_states[message.from_user.id]['state'] = LOCATION_INFORMATION
-    await message.answer('Чтобы расчитать маршрут, введите ОТКУДА, КУДА, и остальные части вашего маршрута:')
+    await message.answer('Чтобы расчитать маршрут, введите ОТКУДА, КУДА, и остальные части вашего маршрута, ГОРОДА ВВОДИТЕ НА АНГЛИЙСКОМ!!!!:')
 
 #Обработчик обычных сообщений не команд
 @dp.message(F.text)
@@ -71,9 +74,9 @@ async def confirm_locations(callback_query: types.CallbackQuery):
 
     else:
         await callback_query.message.answer('Слишком мало точек маршрута! нужно минимум 2. Продолжайте вводить города')
-@dp.callback_query(F.data == 'restart_weather')
 
 #если не подтведили выбор городов, начинаем ввод заново
+@dp.callback_query(F.data == 'restart_weather')
 async def restart_weather(callback_query: types.CallbackQuery):
     user_states[callback_query.from_user.id]['locations'] = []
     await callback_query.message.answer('Начинаю ввод заново...')
@@ -83,8 +86,37 @@ async def restart_weather(callback_query: types.CallbackQuery):
 #Обработка выбора времени
 @dp.callback_query(F.data == 'time')
 async def process_time(callback_query: types.CallbackQuery):
+    user_states[callback_query.from_user.id]['state'] = TIME_INFORMATION
+    inline_keyboard = types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text='Сейчас', callback_data='now')],
+                         [types.InlineKeyboardButton(text='Через час', callback_data='one_hour')],
+                         [types.InlineKeyboardButton(text='Через 3 часа', callback_data='three_hours')],
+                         [types.InlineKeyboardButton(text='Через день', callback_data='tommorow')]])
+    await callback_query.message.answer('Выберите время, через которое выводить прогноз погоды:', reply_markup=inline_keyboard)
 
-
+#обработка  выбора времени через инлайн клаву, обращение к API
+@dp.callback_query(F.data.in_(['now', 'one_hour', 'three_hours', 'tomorrow']))
+async def api(callback_query: types.CallbackQuery):
+    user_states[callback_query.from_user.id]['state'] = GETTING_INFORMATION
+    selected_time = callback_query.data
+    user_states[callback_query.from_user.id]['time'] = selected_time
+    await callback_query.message.answer('делаю запросы к API...')
+    location_keys = [weather_model.get_location_key(city) for city in user_states[callback_query.from_user.id]['locations']]
+    weathers = [weather_model.get_weather_data(key_city) for key_city in location_keys]
+    print(weathers)
+    user_states[callback_query.from_user.id]['state'] = SHOW_WEATHER_INFORMATION
+    i = 0
+    weather_info = ''
+    for weather_data in weathers:
+        weather_info += f"""
+            Город : {user_states[callback_query.from_user.id]['locations'][i]}
+            Температура: {weather_data['temperature']} градусов Цельсия
+            Идут ли осадки: {weather_data['is_precipitation']}
+            Скорость ветра: {weather_data['wind']} м/c
+            
+            """
+        i+=1
+    await callback_query.message.answer(weather_info)
 
 # Запуск бота
 if __name__ == '__main__':
