@@ -102,8 +102,12 @@ async def api(callback_query: types.CallbackQuery):
     user_states[callback_query.from_user.id]['time'] = selected_time
     await callback_query.message.answer('делаю запросы к API...')
     location_keys = [weather_model.get_location_key(city) for city in user_states[callback_query.from_user.id]['locations']]
+    if any([key_resp == 'ПРОБЛЕМА С ГОРОДАМИ' for key_resp in location_keys]): #Если есть проблема с обращением к апи города
+        await callback_query.message.answer('ПРОБЛЕМА С ГОРОДАМИ, введите /help')
+
     weathers = [weather_model.get_weather_data(key_city) for key_city in location_keys]
-    print(weathers)
+    if any([weather_resp == 'ПРОБЛЕМА ПРИ ОБРАЩЕНИИ К API' for weather_resp in weathers]): #Если есть проблема с обращением к апи погода
+        await callback_query.message.answer('ПРОБЛЕМА ПРИ ОБРАЩЕНИИ К API ПОГОДЫ, введите /help')
     user_states[callback_query.from_user.id]['state'] = SHOW_WEATHER_INFORMATION
     i = 0
     weather_info = ''
